@@ -1,6 +1,4 @@
-
 import java.util.List;
-
 
 public class Parser {
     private final List<String> tokens;
@@ -9,41 +7,48 @@ public class Parser {
     public Parser(List<String> tokens) {
         this.tokens = tokens;
     }
-    
-    public void parse(){
+
+    // ------------------------- Core Parsing Methods -------------------------
+    public void parse() {
         while (current < tokens.size()) {
             parseStatement();
         }
     }
-    
+
+    // ------------------------- Statement Parsing -------------------------
     private void parseStatement() {
-        if (current >= tokens.size()) {
-            error("Unexpected end of input");
-        }
-        String token = peek();
-        if (isType(token)) {
-            parseDeclaration();
-        } else if (isIdentifier(token)) {
-            parseAssignment();
-        } else if (token.equals("if")) {
-            parseIfStatement();
-        } else if (token.equals("while")) {
-            parseWhileStatement();
-        } else if (token.equals("for")) {
-            parseForStatement();
-        } else if (token.equals("{")) {
-            parseBlock();
+    if (current >= tokens.size()) error("Unexpected end of input");
+    String token = peek();
+    if (isType(token)) {
+        parseDeclaration();
+    } else if (isIdentifier(token)) {
+        parseAssignment();
+    } else if (token.equals("if")) {
+        parseIfStatement();
+    } else if (token.equals("while")) {
+        parseWhileStatement();
+    } else if (token.equals("for")) {
+        parseForStatement();
+    } else if (token.equals("{")) {
+        parseBlock();
+    } else {
+        if (isNumber(token)) {
+            error("Expected identifier, found number '" + token + "'");
+        } else if (token.equals("float") || token.equals("double")) {
+            error("Invalid type '" + token + "'. Allowed: int, boolean, String, char");
         } else {
             error("Unexpected token for statement: " + token);
         }
     }
-    
+}
+
+    // ------------------------- Declaration Parsing -------------------------
     private void parseDeclaration() {
-        parseType();
-        parseIdentifier();
-        parseDecl();
+        parseType();        // Validates and consumes the type (e.g., "int")
+        parseIdentifier();   // Validates and consumes the identifier (e.g., "x")
+        parseDecl();         // Handles ";", "= <expr> ;"
     }
-    
+
     private void parseDecl() {
         if (match(";")) {
             consume(";");
@@ -53,22 +58,51 @@ public class Parser {
             consume(";");
         }
     }
-    
-     private void parseType() {
+
+    // ------------------------- Type, Identifier, Number Parsing -------------------------
+    /**
+     * Parses and validates a type keyword (e.g., "int", "boolean").
+     * Throws an error if the token is not a valid type.
+     */
+    private void parseType() {
         String token = consume();
         if (!isType(token)) {
             error("Expected type, found " + token);
         }
     }
 
+    /**
+     * Parses and validates an identifier (single lowercase letter).
+     * Throws an error if the token is not a valid identifier.
+     */
+    private void parseIdentifier() {
+        String token = consume();
+        if (!isIdentifier(token)) {
+            error("Expected identifier, found " + token);
+        }
+    }
+
+    /**
+     * Parses and validates a numeric literal (one or more digits).
+     * Throws an error if the token is not a valid number.
+     */
+    private void parseNumber() {
+        String token = consume();
+        if (!isNumber(token)) {
+            error("Expected number, found " + token);
+        }
+    }
+
+    // ------------------------- Assignment Parsing -------------------------
     private void parseAssignment() {
         parseIdentifier();
         consume("=");
         parseExpr();
         consume(";");
     }
-    
-      private void parseIfStatement() {
+
+    // ------------------------- Control Structures -------------------------
+    private void parseIfStatement() {
         consume("if");
         consume("(");
         parseExpr();
@@ -83,8 +117,8 @@ public class Parser {
             parseStatement();
         }
     }
-    
-     private void parseWhileStatement() {
+
+    private void parseWhileStatement() {
         consume("while");
         consume("(");
         parseExpr();
@@ -96,38 +130,41 @@ public class Parser {
         consume("for");
         consume("(");
         parseDeclaration();
-        parseExpr();
+        parseExpr();         
         consume(";");
-        parseExpr();
-        consume(";");
-        parseExpr();
+        parseExpr();         
         consume(")");
         parseStatement();
     }
 
+    // ------------------------- Block Parsing -------------------------
     private void parseBlock() {
         consume("{");
         parseStatement();
         consume("}");
     }
-    
-    
+
+    // ------------------------- Expression Parsing -------------------------
     private void parseExpr() {
         parseSimpleExpr();
         parseSimpleExprPrime();
     }
 
     private void parseSimpleExprPrime() {
-        if (isRelop(peek())) {
-            parseRelop();
-            parseSimpleExpr();
-        }
+    if (current >= tokens.size()) return;
+    String token = peek();
+    if (isRelop(token)) {
+        parseRelop();
+        parseSimpleExpr();
+    } else if (!token.equals(")") && !token.equals(";") && !token.equals("}")) {
+        error("Unexpected operator in expression: " + token);
     }
+}
 
     private void parseRelop() {
         String token = consume();
-        if (!(token.equals("<") || token.equals(">") || token.equals("<=") || token.equals(">=") || token.equals("==") || token.equals("!="))) {
-            error("Expected relop, found " + token);
+        if (!isRelop(token)) {
+            error("Expected relational operator, found " + token);
         }
     }
 
@@ -138,7 +175,7 @@ public class Parser {
 
     private void parseExprPrime() {
         if (match("+") || match("-")) {
-            String op = consume();
+            consume();
             parseTerm();
             parseExprPrime();
         }
@@ -151,13 +188,13 @@ public class Parser {
 
     private void parseTermPrime() {
         if (match("*") || match("/")) {
-            String op = consume();
+            consume();
             parseFactor();
             parseTermPrime();
         }
     }
-    
-      private void parseFactor() {
+
+    private void parseFactor() {
         if (match("(")) {
             consume("(");
             parseExpr();
@@ -171,22 +208,10 @@ public class Parser {
         }
     }
 
-    private void parseIdentifier() {
-        String token = consume();
-        if (!isIdentifier(token)) {
-            error("Expected identifier, found " + token);
-        }
-    }
-    
-    private void parseNumber() {
-        String token = consume();
-        if (!isNumber(token)) {
-            error("Expected number, found " + token);
-        }
-    }
-
+    // ------------------------- Token Validation -------------------------
     private boolean isType(String token) {
-        return token != null && (token.equals("int") || token.equals("boolean") || token.equals("String") || token.equals("char"));
+        return token != null && (token.equals("int") || token.equals("boolean") 
+                || token.equals("String") || token.equals("char"));
     }
 
     private boolean isIdentifier(String token) {
@@ -194,21 +219,24 @@ public class Parser {
     }
 
     private boolean isNumber(String token) {
-        return token != null && token.length() == 1 && Character.isDigit(token.charAt(0));
+        if (token == null || token.isEmpty()) return false;
+        for (char c : token.toCharArray()) {
+            if (!Character.isDigit(c)) return false;
+        }
+        return true;
     }
 
     private boolean isRelop(String token) {
-        return token != null && (token.equals("<") || token.equals(">") || token.equals("<=") || token.equals(">=") || token.equals("==") || token.equals("!="));
+        return token != null && (token.equals("<") || token.equals(">") 
+                || token.equals("<=") || token.equals(">=") || token.equals("==") || token.equals("!="));
     }
 
-    private String consume() {
-        if (current >= tokens.size()) {
-            error("Unexpected end of input");
-        }
-        return tokens.get(current++);
+    // ------------------------- Token Consumption -------------------------
+    private String peek() {
+        return (current < tokens.size()) ? tokens.get(current) : null;
     }
-    
-     private boolean match(String expected) {
+
+    private boolean match(String expected) {
         return expected.equals(peek());
     }
 
@@ -222,17 +250,16 @@ public class Parser {
         }
         current++;
     }
-    
-    
-    private String peek() {
+
+    private String consume() {
         if (current >= tokens.size()) {
-            return null;
+            error("Unexpected end of input");
         }
-        return tokens.get(current);
+        return tokens.get(current++);
     }
-    
+
+    // ------------------------- Error Handling -------------------------
     private void error(String message) {
         throw new RuntimeException("Syntax error: " + message);
     }
-    
 }
